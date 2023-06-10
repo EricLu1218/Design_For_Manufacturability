@@ -24,6 +24,13 @@ std::tuple<size_t, size_t, size_t, size_t> DensityManager::getTileIdx(const geom
     return {beginRowIdx, beginColIdx, endRowIdx, endColIdx};
 }
 
+bool DensityManager::coverByOneTile(const geometry::Rectangle &boundary) const
+{
+    size_t beginRowIdx, beginColIdx, endRowIdx, endColIdx;
+    std::tie(beginRowIdx, beginColIdx, endRowIdx, endColIdx) = getTileIdx(boundary);
+    return (endRowIdx - beginRowIdx) == 1 && (endColIdx - beginColIdx) == 1;
+}
+
 std::pair<int64_t, int64_t> DensityManager::getTilePos(size_t rowIdx, size_t colIdx) const
 {
     int64_t x = db->chipBoundary.x1 + colIdx * tileSize;
@@ -459,10 +466,18 @@ std::vector<geometry::Rectangle> DensityManager::generateAllFiller(const std::ve
     std::vector<geometry::Rectangle> fillers;
     for (const auto &freeRegion : freeRegions)
     {
-        size_t numRow = std::ceil(static_cast<double>(freeRegion.height()) / layer->maxFillWidth);
-        size_t numCol = std::ceil(static_cast<double>(freeRegion.width()) / layer->maxFillWidth);
+        int64_t minRegionWidth = layer->minFillWidth + lowerLeftSpacing + upperRightSpacing;
+        int64_t maxRegionWidth = layer->maxFillWidth + lowerLeftSpacing + upperRightSpacing;
+        size_t numRow = std::min(std::floor(static_cast<double>(freeRegion.height()) / minRegionWidth),
+                                 std::ceil(static_cast<double>(freeRegion.height()) / maxRegionWidth));
+        size_t numCol = std::min(std::floor(static_cast<double>(freeRegion.width()) / minRegionWidth),
+                                 std::ceil(static_cast<double>(freeRegion.width()) / maxRegionWidth));
         int64_t height = freeRegion.height() / numRow;
+        if (height > maxRegionWidth)
+            height = maxRegionWidth;
         int64_t width = freeRegion.width() / numCol;
+        if (width > maxRegionWidth)
+            width = maxRegionWidth;
         for (size_t row = 0; row < numRow; ++row)
         {
             for (size_t col = 0; col < numCol; ++col)
@@ -881,7 +896,7 @@ ResultWriter::ptr DensityManager::solve()
             auto fillers = generateAllFiller(freeRegions);
             for (const auto &filler : fillers)
             {
-                auto newFiller = new process::Filler(filler, false);
+                auto newFiller = new process::Filler(filler, coverByOneTile(filler));
                 allFillers.emplace_back(newFiller);
                 insertFiller(newFiller);
             }

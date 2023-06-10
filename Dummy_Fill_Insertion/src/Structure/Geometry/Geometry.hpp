@@ -19,7 +19,7 @@ namespace geometry
         std::string dumpCoordinates() const;
         bool isLegal() const;
         void shift(int64_t offsetX, int64_t offsetY);
-        void scale(double scale = 1);
+        void scale(double scaling = 1);
         void expand(int64_t lowerLeft, int64_t upperRight);
         void expand(int64_t left, int64_t lower, int64_t right, int64_t upper);
         void transform();
