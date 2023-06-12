@@ -14,7 +14,7 @@ bool ResultWriter::write(const std::string &outputFile) const
     std::ofstream fout(outputFile);
     if (!fout)
     {
-        std::cerr << "[Error] Cannot open \"" << outputFile << "\"!\n";
+        std::cerr << "[Error] Cannot open \"" << outputFile << "\".\n";
         return false;
     }
 

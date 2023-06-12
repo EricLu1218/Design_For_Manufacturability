@@ -16,7 +16,7 @@ $ make clean
 ## How to Run
 Usage:
 ```
-$ ./Fill_Insertion INPUT_FILE OUTPUT_FILE
+$ ./Fill_Insertion <input file> <output file>
 ```
 
 e.g.

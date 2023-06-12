@@ -114,7 +114,7 @@ bool Parser::parse(const std::string &inputFile)
     std::ifstream fin(inputFile);
     if (!fin)
     {
-        std::cerr << "[Error] Cannot open \"" << inputFile << "\"!\n";
+        std::cerr << "[Error] Cannot open \"" << inputFile << "\".\n";
         return false;
     }
 
@@ -140,7 +140,7 @@ bool Parser::write(const std::string &outputFile) const
     std::ofstream fout(outputFile);
     if (!fout)
     {
-        std::cerr << "[Error] Cannot open \"" << outputFile << "\"!\n";
+        std::cerr << "[Error] Cannot open \"" << outputFile << "\".\n";
         return false;
     }
 
