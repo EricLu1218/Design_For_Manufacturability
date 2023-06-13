@@ -19,7 +19,7 @@ Usage:
 $ ./Fill_Insertion <input file> <output file>
 ```
 
-e.g.
+E.g.,
 ```
 $ ./Fill_Insertion ../testcase/3.txt ../output/3.txt
 ```
@@ -27,11 +27,11 @@ $ ./Fill_Insertion ../testcase/3.txt ../output/3.txt
 ## How to Test
 In `Dummy_Fill_Insertion/src/`, enter the following command:
 ```
-$ make test ${name}
+$ make test $name
 ```
-It will build an executable file and test on testcase ${name}.
+It will build an executable file, test on testcase `$name`, and run a verifier to verify the answer.
 
-E.g., test on testcase 3 (`3.txt`).
+E.g., test on testcase 3 and verify the answer.
 ```
 $ make test 3
 ```
