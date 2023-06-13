@@ -117,7 +117,7 @@ namespace process
         }
         double density() const
         {
-            return static_cast<double>(occupyArea()) / this->area();
+            return static_cast<double>(occupyArea()) / area();
         }
     };
 
