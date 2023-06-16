@@ -43,42 +43,47 @@ bool geometry::Rectangle::isLegal() const
     return width() > 0 && height() > 0;
 }
 
-void geometry::Rectangle::shift(int64_t offsetX, int64_t offsetY)
+geometry::Rectangle &geometry::Rectangle::shift(int64_t offsetX, int64_t offsetY)
 {
     x1 += offsetX;
     y1 += offsetY;
     x2 += offsetX;
     y2 += offsetY;
+    return *this;
 }
 
-void geometry::Rectangle::scale(double scaling)
+geometry::Rectangle &geometry::Rectangle::scale(double scaling)
 {
     x1 *= scaling;
     y1 *= scaling;
     x2 *= scaling;
     y2 *= scaling;
+    return *this;
 }
 
-void geometry::Rectangle::expand(int64_t lowerLeft, int64_t upperRight)
+geometry::Rectangle &geometry::Rectangle::expand(int64_t lowerLeft, int64_t upperRight)
 {
     x1 -= lowerLeft;
     y1 -= lowerLeft;
     x2 += upperRight;
     y2 += upperRight;
+    return *this;
 }
 
-void geometry::Rectangle::expand(int64_t left, int64_t lower, int64_t right, int64_t upper)
+geometry::Rectangle &geometry::Rectangle::expand(int64_t left, int64_t lower, int64_t right, int64_t upper)
 {
     x1 -= left;
     y1 -= lower;
     x2 += right;
     y2 += upper;
+    return *this;
 }
 
-void geometry::Rectangle::transform()
+geometry::Rectangle &geometry::Rectangle::transform()
 {
     std::swap(x1, y1);
     std::swap(x2, y2);
+    return *this;
 }
 
 bool geometry::isIntersect(const geometry::Rectangle &a, const geometry::Rectangle &b)

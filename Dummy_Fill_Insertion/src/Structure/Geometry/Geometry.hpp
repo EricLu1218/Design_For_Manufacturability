@@ -18,11 +18,11 @@ namespace geometry
         double aspectRatio() const;
         std::string dumpCoordinates() const;
         bool isLegal() const;
-        void shift(int64_t offsetX, int64_t offsetY);
-        void scale(double scaling = 1);
-        void expand(int64_t lowerLeft, int64_t upperRight);
-        void expand(int64_t left, int64_t lower, int64_t right, int64_t upper);
-        void transform();
+        Rectangle &shift(int64_t offsetX, int64_t offsetY);
+        Rectangle &scale(double scaling = 1);
+        Rectangle &expand(int64_t lowerLeft, int64_t upperRight);
+        Rectangle &expand(int64_t left, int64_t lower, int64_t right, int64_t upper);
+        Rectangle &transform();
     };
 
     // utility function

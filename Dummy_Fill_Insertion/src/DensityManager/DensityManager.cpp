@@ -78,23 +78,17 @@ int64_t DensityManager::getConductorArea(const process::Tile &tile) const
 {
     int64_t conductorArea = 0;
     // directly add conductor areas
-    std::unordered_map<int64_t, std::vector<process::Conductor *>> netIdToConductors;
-    for (const auto conductor : tile.conductors)
+    std::vector<std::pair<geometry::Rectangle, size_t>> regions; // (boundary, index in conductor vector)
+    for (size_t i = 0; i < tile.conductors.size(); ++i)
     {
-        conductorArea += geometry::getIntersectRegion(tile, *conductor).area();
-        netIdToConductors[conductor->netId].emplace_back(conductor);
+        auto intersectRegion = geometry::getIntersectRegion(tile, *tile.conductors[i]);
+        regions.emplace_back(intersectRegion, i);
+        conductorArea += intersectRegion.area();
     }
 
     // handle the area of overlapping conductors
-    for (const auto &[_, conductors] : netIdToConductors)
+    if (tile.conductors.size() > 1)
     {
-        if (conductors.size() <= 1)
-            continue;
-
-        std::vector<std::pair<geometry::Rectangle, size_t>> regions; // (boundary, index in conductor vector)
-        for (size_t i = 0; i < conductors.size(); ++i)
-            regions.emplace_back(geometry::getIntersectRegion(tile, *conductors[i]), i);
-
         // inclusion-exclusion principle
         int64_t sign = -1;
         while (!regions.empty())
@@ -102,9 +96,9 @@ int64_t DensityManager::getConductorArea(const process::Tile &tile) const
             std::vector<std::pair<geometry::Rectangle, size_t>> intersectRegions;
             for (const auto &[region, idx] : regions)
             {
-                for (size_t i = idx + 1; i < conductors.size(); ++i)
+                for (size_t i = idx + 1; i < tile.conductors.size(); ++i)
                 {
-                    auto intersectRegion = geometry::getIntersectRegion(region, *conductors[i]);
+                    auto intersectRegion = geometry::getIntersectRegion(region, *tile.conductors[i]);
                     if (intersectRegion.area() == 0)
                         continue;
 
@@ -503,6 +497,7 @@ void DensityManager::removeCriticalNetFiller()
 
         geometry::Rectangle boundary(*criticalConductor);
         boundary.expand(layer->minSpacing * 2, layer->minSpacing * 2);
+        boundary = geometry::getIntersectRegion(db->chipBoundary, boundary);
 
         size_t beginRowIdx, beginColIdx, endRowIdx, endColIdx;
         std::tie(beginRowIdx, beginColIdx, endRowIdx, endColIdx) = getTileIdx(*criticalConductor);
@@ -696,8 +691,7 @@ void DensityManager::drawBorder(std::vector<std::vector<char>> &detailGrid, cons
                                 const geometry::Rectangle &region, double scaling, char h, char v) const
 {
     geometry::Rectangle rectangle(region);
-    rectangle.shift(-boundary.x1, -boundary.y1);
-    rectangle.scale(scaling);
+    rectangle.shift(-boundary.x1, -boundary.y1).scale(scaling);
 
     if (!rectangle.isLegal())
         return;
@@ -712,8 +706,7 @@ void DensityManager::drawRegion(std::vector<std::vector<char>> &detailGrid, cons
                                 const geometry::Rectangle &region, double scaling, char c) const
 {
     geometry::Rectangle rectangle(region);
-    rectangle.shift(-boundary.x1, -boundary.y1);
-    rectangle.scale(scaling);
+    rectangle.shift(-boundary.x1, -boundary.y1).scale(scaling);
 
     if (!rectangle.isLegal())
         return;

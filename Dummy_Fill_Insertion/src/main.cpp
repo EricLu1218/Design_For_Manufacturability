@@ -14,7 +14,8 @@ int main(int argc, char *argv[])
     timer.startTimer("parse input");
 
     Parser parser;
-    parser.parse(argParser.inputFile);
+    if (!parser.parse(argParser.inputFile))
+        return 1;
     auto db = parser.createDatabase();
 
     timer.stopTimer("parse input");

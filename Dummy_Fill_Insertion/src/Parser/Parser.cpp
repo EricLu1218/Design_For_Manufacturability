@@ -112,7 +112,7 @@ Parser::Parser() : numCriticalNet(0), numLayer(0), numConductor(0) {}
 bool Parser::parse(const std::string &inputFile)
 {
     std::ifstream fin(inputFile);
-    if (!fin)
+    if (!fin.is_open())
     {
         std::cerr << "[Error] Cannot open \"" << inputFile << "\".\n";
         return false;
@@ -138,7 +138,7 @@ bool Parser::parse(const std::string &inputFile)
 bool Parser::write(const std::string &outputFile) const
 {
     std::ofstream fout(outputFile);
-    if (!fout)
+    if (!fout.is_open())
     {
         std::cerr << "[Error] Cannot open \"" << outputFile << "\".\n";
         return false;
