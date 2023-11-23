@@ -9,12 +9,12 @@ void ResultWriter::addFiller(const geometry::Rectangle &filler, int64_t layerId)
     layerToFillers[layerId].emplace_back(filler);
 }
 
-bool ResultWriter::write(const std::string &outputFile) const
+bool ResultWriter::write(const std::string &filepath) const
 {
-    std::ofstream fout(outputFile);
+    std::ofstream fout(filepath);
     if (!fout.is_open())
     {
-        std::cerr << "[Error] Cannot open \"" << outputFile << "\".\n";
+        std::cerr << "[Error] Cannot open \"" << filepath << "\".\n";
         return false;
     }
 

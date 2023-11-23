@@ -109,12 +109,12 @@ void Parser::writeConductor(std::ostream &output) const
 
 Parser::Parser() : numCriticalNet(0), numLayer(0), numConductor(0) {}
 
-bool Parser::parse(const std::string &inputFile)
+bool Parser::parse(const std::string &filepath)
 {
-    std::ifstream fin(inputFile);
+    std::ifstream fin(filepath);
     if (!fin.is_open())
     {
-        std::cerr << "[Error] Cannot open \"" << inputFile << "\".\n";
+        std::cerr << "[Error] Cannot open \"" << filepath << "\".\n";
         return false;
     }
 
@@ -135,12 +135,12 @@ bool Parser::parse(const std::string &inputFile)
     return true;
 }
 
-bool Parser::write(const std::string &outputFile) const
+bool Parser::write(const std::string &filepath) const
 {
-    std::ofstream fout(outputFile);
+    std::ofstream fout(filepath);
     if (!fout.is_open())
     {
-        std::cerr << "[Error] Cannot open \"" << outputFile << "\".\n";
+        std::cerr << "[Error] Cannot open \"" << filepath << "\".\n";
         return false;
     }
 

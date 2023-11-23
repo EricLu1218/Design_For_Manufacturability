@@ -1,5 +1,6 @@
 CXX      := g++
 CXXFLAGS := -std=c++17 -O3 -Wall -Wextra -MMD
+LIBS     := -lm
 EXEC     := ../bin/Fill_Insertion
 SRC_DIRS := .\
 			DensityManager\
@@ -13,7 +14,7 @@ DEPS     := $(OBJS:.o=.d)
 all: $(EXEC)
 
 $(EXEC): $(OBJS)
-	$(CXX) -o $@ $^
+	$(CXX) -o $@ $^ $(LIBS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@

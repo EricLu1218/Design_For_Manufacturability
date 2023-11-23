@@ -29,7 +29,7 @@ class Parser
 
 public:
     Parser();
-    bool parse(const std::string &inputFile);
-    bool write(const std::string &outputFile) const;
+    bool parse(const std::string &filepath);
+    bool write(const std::string &filepath) const;
     process::Database::ptr createDatabase() const;
 };

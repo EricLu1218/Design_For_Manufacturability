@@ -14,5 +14,5 @@ public:
 
     ResultWriter();
     void addFiller(const geometry::Rectangle &filler, int64_t layerId);
-    bool write(const std::string &outputFile) const;
+    bool write(const std::string &filepath) const;
 };
