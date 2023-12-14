@@ -49,7 +49,7 @@ void Parser::readLayer(std::istream &input)
         std::getline(input, buff);
         std::stringstream buffStream(buff);
 
-        auto layer = new raw::Layer();
+        raw::Layer *layer = new raw::Layer();
         buffStream >> layer->id;
         buffStream >> layer->minFillWidth >> layer->minSpacing >> layer->maxFillWidth;
         buffStream >> layer->minMetalDensity >> layer->maxMetalDensity >> layer->weight;
@@ -66,7 +66,7 @@ void Parser::readConductor(std::istream &input)
         std::getline(input, buff);
         std::stringstream buffStream(buff);
 
-        auto conductor = new raw::Conductor();
+        raw::Conductor *conductor = new raw::Conductor();
         buffStream >> conductor->id;
         buffStream >> conductor->x1 >> conductor->y1 >> conductor->x2 >> conductor->y2;
         buffStream >> conductor->netId >> conductor->layerId;
@@ -87,13 +87,13 @@ void Parser::writeNum(std::ostream &output) const
 
 void Parser::writeCriticalNet(std::ostream &output) const
 {
-    for (auto criticalNetId : criticalNets)
+    for (int64_t criticalNetId : criticalNets)
         output << criticalNetId << "\n";
 }
 
 void Parser::writeLayer(std::ostream &output) const
 {
-    for (const auto &layer : layers)
+    for (const raw::Layer::ptr &layer : layers)
         output << layer->id << " "
                << layer->minFillWidth << " " << layer->minSpacing << " " << layer->maxFillWidth << " "
                << layer->minMetalDensity << " " << layer->maxMetalDensity << " " << layer->weight << "\n";
@@ -101,7 +101,7 @@ void Parser::writeLayer(std::ostream &output) const
 
 void Parser::writeConductor(std::ostream &output) const
 {
-    for (const auto &conductor : conductors)
+    for (const raw::Conductor::ptr &conductor : conductors)
         output << conductor->id << " "
                << conductor->x1 << " " << conductor->y1 << " " << conductor->x2 << " " << conductor->y2 << " "
                << conductor->netId << " " << conductor->layerId << "\n";
@@ -154,31 +154,31 @@ bool Parser::write(const std::string &filepath) const
 
 process::Database::ptr Parser::createDatabase() const
 {
-    auto database = new process::Database();
+    process::Database *database = new process::Database();
     database->chipBoundary = chipBoundary;
     database->windowSize = windowSize;
 
     std::unordered_map<int64_t, process::Layer *> idToLayer;
-    for (const auto &layer : layers)
+    for (const raw::Layer::ptr &layer : layers)
     {
-        auto newLayer = new process::Layer(*layer.get());
+        process::Layer *newLayer = new process::Layer(*layer.get());
         database->layers.emplace_back(newLayer);
         idToLayer.emplace(layer->id, newLayer);
     }
 
     std::unordered_set<int64_t> criticalNetSet(criticalNets.begin(), criticalNets.end());
-    for (const auto &conductor : conductors)
+    for (const raw::Conductor::ptr &conductor : conductors)
     {
-        auto newConductor = new process::Conductor(conductor.get());
+        process::Conductor *newConductor = new process::Conductor(conductor.get());
         idToLayer[conductor->layerId]->conductors.emplace_back(newConductor);
         if (criticalNetSet.count(conductor->netId))
             newConductor->isCritical = true;
     }
 
-    for (auto &layer : database->layers)
+    for (process::Layer::ptr &layer : database->layers)
     {
         double aspectRatio = 0;
-        for (const auto &conductor : layer->conductors)
+        for (const process::Conductor::ptr &conductor : layer->conductors)
             aspectRatio += conductor->aspectRatio();
         aspectRatio /= layer->conductors.size();
         if (aspectRatio >= 1)

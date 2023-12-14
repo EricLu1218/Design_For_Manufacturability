@@ -27,8 +27,8 @@ class DensityManager
     std::vector<std::vector<int64_t>> windowGrid; // record window metal area
 
     std::pair<size_t, size_t> getTileIdx(
-        int64_t x, int64_t y, std::function<double(double)> func = [](double d)
-                              { return std::floor(d); }) const;
+        int64_t x, int64_t y, std::function<double(double)> func = [](double d) -> bool
+        { return std::floor(d); }) const;
     std::tuple<size_t, size_t, size_t, size_t> getTileIdx(const geometry::Rectangle &boundary) const;
     bool coverByOneTile(const geometry::Rectangle &boundary) const;
     std::pair<int64_t, int64_t> getTilePos(size_t rowIdx, size_t colIdx) const;

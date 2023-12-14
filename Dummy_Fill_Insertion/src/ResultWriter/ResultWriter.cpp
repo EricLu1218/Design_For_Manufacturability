@@ -19,7 +19,7 @@ bool ResultWriter::write(const std::string &filepath) const
     }
 
     for (const auto &[layerId, fillers] : layerToFillers)
-        for (const auto &filler : fillers)
+        for (const geometry::Rectangle &filler : fillers)
             fout << filler.dumpCoordinates() << " " << layerId << "\n";
     return true;
 }

@@ -16,13 +16,13 @@ int main(int argc, char *argv[])
     Parser parser;
     if (!parser.parse(argParser.inputFilepath))
         return 1;
-    auto db = parser.createDatabase();
+    process::Database::ptr db = parser.createDatabase();
 
     timer.stopTimer("parse input");
     timer.startTimer("processing");
 
     DensityManager densityManager(db.get());
-    auto result = densityManager.solve();
+    ResultWriter::ptr result = densityManager.solve();
 
     timer.stopTimer("processing");
     timer.startTimer("write output");

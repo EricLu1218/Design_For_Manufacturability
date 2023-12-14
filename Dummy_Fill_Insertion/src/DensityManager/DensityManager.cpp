@@ -26,8 +26,7 @@ std::tuple<size_t, size_t, size_t, size_t> DensityManager::getTileIdx(const geom
 
 bool DensityManager::coverByOneTile(const geometry::Rectangle &boundary) const
 {
-    size_t beginRowIdx, beginColIdx, endRowIdx, endColIdx;
-    std::tie(beginRowIdx, beginColIdx, endRowIdx, endColIdx) = getTileIdx(boundary);
+    auto [beginRowIdx, beginColIdx, endRowIdx, endColIdx] = getTileIdx(boundary);
     return (endRowIdx - beginRowIdx) == 1 && (endColIdx - beginColIdx) == 1;
 }
 
@@ -57,9 +56,9 @@ std::pair<int64_t, int64_t> DensityManager::getMinMaxWindowMetalArea() const
 {
     int64_t minArea = windowArea;
     int64_t maxArea = 0;
-    for (const auto &row : windowGrid)
+    for (const std::vector<int64_t> &row : windowGrid)
     {
-        for (const auto &area : row)
+        for (int64_t area : row)
         {
             minArea = std::min(minArea, area);
             maxArea = std::max(maxArea, area);
@@ -81,7 +80,7 @@ int64_t DensityManager::getConductorArea(const process::Tile &tile) const
     std::vector<std::pair<geometry::Rectangle, size_t>> regions; // (boundary, index in conductor vector)
     for (size_t i = 0; i < tile.conductors.size(); ++i)
     {
-        auto intersectRegion = geometry::getIntersectRegion(tile, *tile.conductors[i]);
+        geometry::Rectangle intersectRegion = geometry::getIntersectRegion(tile, *tile.conductors[i]);
         regions.emplace_back(intersectRegion, i);
         conductorArea += intersectRegion.area();
     }
@@ -98,7 +97,7 @@ int64_t DensityManager::getConductorArea(const process::Tile &tile) const
             {
                 for (size_t i = idx + 1; i < tile.conductors.size(); ++i)
                 {
-                    auto intersectRegion = geometry::getIntersectRegion(region, *tile.conductors[i]);
+                    geometry::Rectangle intersectRegion = geometry::getIntersectRegion(region, *tile.conductors[i]);
                     if (intersectRegion.area() == 0)
                         continue;
 
@@ -153,18 +152,17 @@ void DensityManager::initGrid()
                     tileGrid[rowIdx + r][colIdx + c].windows.emplace_back(&windowGrid[rowIdx][colIdx]);
 
     // add conductor to intersecting tiles
-    for (const auto &conductor : layer->conductors)
+    for (const process::Conductor::ptr &conductor : layer->conductors)
     {
-        size_t beginRowIdx, beginColIdx, endRowIdx, endColIdx;
-        std::tie(beginRowIdx, beginColIdx, endRowIdx, endColIdx) = getTileIdx(*conductor);
+        auto [beginRowIdx, beginColIdx, endRowIdx, endColIdx] = getTileIdx(*conductor);
         for (size_t rowIdx = beginRowIdx; rowIdx < endRowIdx; ++rowIdx)
             for (size_t colIdx = beginColIdx; colIdx < endColIdx; ++colIdx)
                 tileGrid[rowIdx][colIdx].conductors.emplace_back(conductor.get());
     }
 
     // calculate the total area occupied by conductors in each tile
-    for (auto &row : tileGrid)
-        for (auto &tile : row)
+    for (std::vector<process::Tile> &row : tileGrid)
+        for (process::Tile &tile : row)
             tile.conductorArea = getConductorArea(tile);
 
     updateAllWindowMetalArea();
@@ -172,8 +170,7 @@ void DensityManager::initGrid()
 
 void DensityManager::recordFreeRegion(geometry::Rectangle *freeRegion)
 {
-    size_t beginRowIdx, beginColIdx, endRowIdx, endColIdx;
-    std::tie(beginRowIdx, beginColIdx, endRowIdx, endColIdx) = getTileIdx(*freeRegion);
+    auto [beginRowIdx, beginColIdx, endRowIdx, endColIdx] = getTileIdx(*freeRegion);
     for (size_t rowIdx = beginRowIdx; rowIdx < endRowIdx; ++rowIdx)
         for (size_t colIdx = beginColIdx; colIdx < endColIdx; ++colIdx)
             tileGrid[rowIdx][colIdx].candidateRegions.emplace_back(freeRegion);
@@ -181,18 +178,17 @@ void DensityManager::recordFreeRegion(geometry::Rectangle *freeRegion)
 
 void DensityManager::insertFiller(process::Filler *filler)
 {
-    size_t beginRowIdx, beginColIdx, endRowIdx, endColIdx;
-    std::tie(beginRowIdx, beginColIdx, endRowIdx, endColIdx) = getTileIdx(*filler);
+    auto [beginRowIdx, beginColIdx, endRowIdx, endColIdx] = getTileIdx(*filler);
     for (size_t rowIdx = beginRowIdx; rowIdx < endRowIdx; ++rowIdx)
     {
         for (size_t colIdx = beginColIdx; colIdx < endColIdx; ++colIdx)
         {
-            auto &tile = tileGrid[rowIdx][colIdx];
+            process::Tile &tile = tileGrid[rowIdx][colIdx];
             tile.candidateFillerSet.erase(filler);
             tile.fillerSet.emplace(filler);
-            auto area = geometry::getIntersectRegion(tile, *filler).area();
+            int64_t area = geometry::getIntersectRegion(tile, *filler).area();
             tile.fillerArea += area;
-            for (auto window : tile.windows)
+            for (int64_t *window : tile.windows)
                 *window += area;
         }
     }
@@ -200,18 +196,17 @@ void DensityManager::insertFiller(process::Filler *filler)
 
 void DensityManager::removeFiller(process::Filler *filler)
 {
-    size_t beginRowIdx, beginColIdx, endRowIdx, endColIdx;
-    std::tie(beginRowIdx, beginColIdx, endRowIdx, endColIdx) = getTileIdx(*filler);
+    auto [beginRowIdx, beginColIdx, endRowIdx, endColIdx] = getTileIdx(*filler);
     for (size_t rowIdx = beginRowIdx; rowIdx < endRowIdx; ++rowIdx)
     {
         for (size_t colIdx = beginColIdx; colIdx < endColIdx; ++colIdx)
         {
-            auto &tile = tileGrid[rowIdx][colIdx];
+            process::Tile &tile = tileGrid[rowIdx][colIdx];
             tile.fillerSet.erase(filler);
             tile.candidateFillerSet.emplace(filler);
-            auto area = geometry::getIntersectRegion(tile, *filler).area();
+            int64_t area = geometry::getIntersectRegion(tile, *filler).area();
             tile.fillerArea -= area;
-            for (auto window : tile.windows)
+            for (int64_t *window : tile.windows)
                 *window -= area;
         }
     }
@@ -224,7 +219,7 @@ std::vector<geometry::Rectangle> DensityManager::getAllFreeRegion(size_t rowIdx,
     if (rowIdx == numTileRow && colIdx == numTileCol)
     {
         boundary = db->chipBoundary;
-        for (const auto &conductor : layer->conductors)
+        for (const process::Conductor::ptr &conductor : layer->conductors)
         {
             geometry::Rectangle newConductor(*conductor.get());
             newConductor.expand(lowerLeftSpacing, upperRightSpacing);
@@ -243,10 +238,10 @@ std::vector<geometry::Rectangle> DensityManager::getAllFreeRegion(size_t rowIdx,
         extendBoundary.expand(upperRightSpacing, lowerLeftSpacing);
         for (size_t r = beginRowIdx; r <= endRowIdx; ++r)
             for (size_t c = beginColIdx; c <= endColIdx; ++c)
-                for (const auto &conductor : tileGrid[r][c].conductors)
+                for (process::Conductor *conductor : tileGrid[r][c].conductors)
                     if (geometry::isIntersect(extendBoundary, *conductor))
                         conductorSet.emplace(conductor);
-        for (const auto conductor : conductorSet)
+        for (const process::Conductor *conductor : conductorSet)
         {
             geometry::Rectangle newConductor(*conductor);
             newConductor.expand(lowerLeftSpacing, upperRightSpacing);
@@ -257,7 +252,7 @@ std::vector<geometry::Rectangle> DensityManager::getAllFreeRegion(size_t rowIdx,
     if (layer->direction == process::Layer::Direction::VERTICAL)
     {
         boundary.transform();
-        for (auto &conductor : conductors)
+        for (geometry::Rectangle &conductor : conductors)
             conductor.transform();
     }
 
@@ -266,7 +261,7 @@ std::vector<geometry::Rectangle> DensityManager::getAllFreeRegion(size_t rowIdx,
         conductorSweepLines; // {x, (right borders, left borders)}
     conductorSweepLines[boundary.x1];
     conductorSweepLines[boundary.x2];
-    for (auto &conductor : conductors)
+    for (geometry::Rectangle &conductor : conductors)
     {
         conductorSweepLines[conductor.x1].second.emplace_back(&conductor); // left border
         conductorSweepLines[conductor.x2].first.emplace_back(&conductor);  // rigth border
@@ -289,16 +284,16 @@ std::vector<geometry::Rectangle> DensityManager::getAllFreeRegion(size_t rowIdx,
     std::unordered_set<geometry::Rectangle *> tempRegionSet;
     for (const auto &[x, borders] : conductorSweepLines)
     {
-        for (const auto conductor : borders.first)
+        for (geometry::Rectangle *conductor : borders.first)
             cutConductorSet.erase(conductor);
-        for (const auto conductor : borders.second)
+        for (geometry::Rectangle *conductor : borders.second)
             cutConductorSet.emplace(conductor);
 
         if (boundary.x1 <= x && x < boundary.x2)
         {
             std::set<std::pair<int64_t, int64_t>> freeIntervalSet;
             int64_t maxY = boundary.y1;
-            for (const auto conductor : cutConductorSet)
+            for (const geometry::Rectangle *conductor : cutConductorSet)
             {
                 if (conductor->y1 - maxY >= minRegionWidth)
                     freeIntervalSet.emplace(maxY, conductor->y1);
@@ -309,7 +304,7 @@ std::vector<geometry::Rectangle> DensityManager::getAllFreeRegion(size_t rowIdx,
 
             for (auto it = tempRegionSet.begin(); it != tempRegionSet.end();)
             {
-                auto tempRegion = *it;
+                geometry::Rectangle *tempRegion = *it;
                 if (freeIntervalSet.count({tempRegion->y1, tempRegion->y2}))
                 {
                     freeIntervalSet.erase({tempRegion->y1, tempRegion->y2});
@@ -329,7 +324,7 @@ std::vector<geometry::Rectangle> DensityManager::getAllFreeRegion(size_t rowIdx,
         }
         else if (x == boundary.x2)
         {
-            for (auto tempRegion : tempRegionSet)
+            for (geometry::Rectangle *tempRegion : tempRegionSet)
             {
                 tempRegion->x2 = x;
                 if (tempRegion->width() >= minRegionWidth)
@@ -341,7 +336,7 @@ std::vector<geometry::Rectangle> DensityManager::getAllFreeRegion(size_t rowIdx,
     }
 
     if (layer->direction == process::Layer::Direction::VERTICAL)
-        for (auto &freeRegion : freeRegions)
+        for (geometry::Rectangle &freeRegion : freeRegions)
             freeRegion.transform();
     return freeRegions;
 }
@@ -353,7 +348,7 @@ std::vector<geometry::Rectangle> DensityManager::refineFreeRegion(const std::vec
                                 std::unordered_set<process::sweepline::Region *>>>
         regionSweepLines; // {x, (right border, left border)}
 
-    for (auto freeRegion : freeRegions)
+    for (geometry::Rectangle freeRegion : freeRegions)
     {
         if (layer->direction == process::Layer::Direction::VERTICAL)
             freeRegion.transform();
@@ -361,7 +356,7 @@ std::vector<geometry::Rectangle> DensityManager::refineFreeRegion(const std::vec
         if (freeRegion.height() < minRegionWidth)
             continue;
 
-        auto region = new process::sweepline::Region(freeRegion, freeRegion.width() >= minRegionWidth);
+        process::sweepline::Region *region = new process::sweepline::Region(freeRegion, freeRegion.width() >= minRegionWidth);
         regionSweepLines[region->x1].second.emplace(region); // left border
         regionSweepLines[region->x2].first.emplace(region);  // right border
     }
@@ -370,10 +365,10 @@ std::vector<geometry::Rectangle> DensityManager::refineFreeRegion(const std::vec
     {
         for (auto formerIt = borders.first.begin(); formerIt != borders.first.end(); ++formerIt)
         {
-            auto former = *formerIt;
+            process::sweepline::Region *former = *formerIt;
             for (auto latterIt = borders.second.begin(); latterIt != borders.second.end();)
             {
-                auto latter = *latterIt;
+                process::sweepline::Region *latter = *latterIt;
                 if (former->isLegal && latter->isLegal)
                 {
                     if (former->y1 == latter->y1 && former->y2 == latter->y2)
@@ -394,7 +389,7 @@ std::vector<geometry::Rectangle> DensityManager::refineFreeRegion(const std::vec
                         regionSweepLines[former->x2].first.emplace(former);
                         if (former->y1 - latter->y1 >= minRegionWidth)
                         {
-                            auto newLatter = new process::sweepline::Region(*latter);
+                            process::sweepline::Region *newLatter = new process::sweepline::Region(*latter);
                             newLatter->y2 = former->y1;
                             regionSweepLines[newLatter->x1].second.emplace(newLatter);
                             regionSweepLines[newLatter->x2].first.emplace(newLatter);
@@ -429,7 +424,7 @@ std::vector<geometry::Rectangle> DensityManager::refineFreeRegion(const std::vec
     std::vector<geometry::Rectangle> refinedRegions;
     for (auto &[_, borders] : regionSweepLines)
     {
-        for (auto region : borders.second)
+        for (process::sweepline::Region *region : borders.second)
         {
             if (region->width() >= minRegionWidth && region->height() >= minRegionWidth)
                 refinedRegions.emplace_back(*region);
@@ -438,7 +433,7 @@ std::vector<geometry::Rectangle> DensityManager::refineFreeRegion(const std::vec
     }
 
     if (layer->direction == process::Layer::Direction::VERTICAL)
-        for (auto &refinedRegion : refinedRegions)
+        for (geometry::Rectangle &refinedRegion : refinedRegions)
             refinedRegion.transform();
     return refinedRegions;
 }
@@ -447,7 +442,7 @@ std::vector<geometry::Rectangle> DensityManager::filterIllegalRegion(const std::
 {
     int64_t minRegionWidth = layer->minFillWidth + lowerLeftSpacing + upperRightSpacing;
     std::vector<geometry::Rectangle> legalRegions;
-    for (const auto &freeRegion : freeRegions)
+    for (const geometry::Rectangle &freeRegion : freeRegions)
     {
         if (freeRegion.width() >= minRegionWidth && freeRegion.height() >= minRegionWidth)
             legalRegions.emplace_back(freeRegion);
@@ -458,7 +453,7 @@ std::vector<geometry::Rectangle> DensityManager::filterIllegalRegion(const std::
 std::vector<geometry::Rectangle> DensityManager::generateAllFiller(const std::vector<geometry::Rectangle> &freeRegions) const
 {
     std::vector<geometry::Rectangle> fillers;
-    for (const auto &freeRegion : freeRegions)
+    for (const geometry::Rectangle &freeRegion : freeRegions)
     {
         int64_t minRegionWidth = layer->minFillWidth + lowerLeftSpacing + upperRightSpacing;
         int64_t maxRegionWidth = layer->maxFillWidth + lowerLeftSpacing + upperRightSpacing;
@@ -490,7 +485,7 @@ std::vector<geometry::Rectangle> DensityManager::generateAllFiller(const std::ve
 void DensityManager::removeCriticalNetFiller()
 {
     std::unordered_set<process::Filler *> candidateRemoveSet;
-    for (const auto &criticalConductor : layer->conductors)
+    for (const process::Conductor::ptr &criticalConductor : layer->conductors)
     {
         if (!criticalConductor->isCritical)
             continue;
@@ -499,8 +494,7 @@ void DensityManager::removeCriticalNetFiller()
         boundary.expand(layer->minSpacing * 2, layer->minSpacing * 2);
         boundary = geometry::getIntersectRegion(db->chipBoundary, boundary);
 
-        size_t beginRowIdx, beginColIdx, endRowIdx, endColIdx;
-        std::tie(beginRowIdx, beginColIdx, endRowIdx, endColIdx) = getTileIdx(*criticalConductor);
+        auto [beginRowIdx, beginColIdx, endRowIdx, endColIdx] = getTileIdx(*criticalConductor);
         beginRowIdx = (beginRowIdx > 0) ? beginRowIdx - 1 : beginRowIdx;
         beginColIdx = (beginColIdx > 0) ? beginColIdx - 1 : beginColIdx;
         endRowIdx = (endRowIdx + 1 < numTileRow) ? endRowIdx + 1 : endRowIdx;
@@ -509,8 +503,8 @@ void DensityManager::removeCriticalNetFiller()
         {
             for (size_t colIdx = beginColIdx; colIdx < endColIdx; ++colIdx)
             {
-                auto &tile = tileGrid[rowIdx][colIdx];
-                for (const auto filler : tile.fillerSet)
+                process::Tile &tile = tileGrid[rowIdx][colIdx];
+                for (process::Filler *filler : tile.fillerSet)
                 {
                     if (!geometry::isIntersect(boundary, *filler))
                         continue;
@@ -524,9 +518,9 @@ void DensityManager::removeCriticalNetFiller()
     }
 
     std::vector<process::Filler *> candidateRemove(candidateRemoveSet.begin(), candidateRemoveSet.end());
-    std::sort(candidateRemove.begin(), candidateRemove.end(), [](const process::Filler *a, const process::Filler *b)
+    std::sort(candidateRemove.begin(), candidateRemove.end(), [](const process::Filler *a, const process::Filler *b) -> bool
               { return a->cost > b->cost || (a->cost == b->cost && a->area() < b->area()); });
-    for (const auto &filler : candidateRemove)
+    for (process::Filler *filler : candidateRemove)
     {
         removeFiller(filler);
         if (getMinMaxWindowMetalArea().first < minMetalAreaConstraint)
@@ -540,13 +534,13 @@ void DensityManager::meetDensityConstraint()
     if (minMetalArea >= minMetalAreaConstraint && maxMatelArea <= maxMetalAreaConstraint)
         return;
 
-    for (auto &row : tileGrid)
+    for (std::vector<process::Tile> &row : tileGrid)
     {
-        for (auto &tile : row)
+        for (process::Tile &tile : row)
         {
             int64_t minOccupyArea = windowArea;
             int64_t maxOccupyArea = 0;
-            for (const auto occupyArea : tile.windows)
+            for (const int64_t *occupyArea : tile.windows)
             {
                 minOccupyArea = std::min(minOccupyArea, *occupyArea);
                 maxOccupyArea = std::max(maxOccupyArea, *occupyArea);
@@ -560,9 +554,9 @@ void DensityManager::meetDensityConstraint()
 
             int64_t removeArea = 0;
             std::vector<process::Filler *> fillers(tile.fillerSet.begin(), tile.fillerSet.end());
-            std::sort(fillers.begin(), fillers.end(), [](const process::Filler *a, const process::Filler *b)
+            std::sort(fillers.begin(), fillers.end(), [](const process::Filler *a, const process::Filler *b) -> bool
                       { return a->area() < b->area(); });
-            for (const auto &filler : fillers)
+            for (process::Filler *filler : fillers)
             {
                 if (removeArea >= minRemoveArea)
                     break;
@@ -600,20 +594,20 @@ void DensityManager::meetDensityConstraint()
 
 void DensityManager::removeMoreFiller()
 {
-    for (auto &row : tileGrid)
+    for (std::vector<process::Tile> &row : tileGrid)
     {
-        for (auto &tile : row)
+        for (process::Tile &tile : row)
         {
             int64_t minOccupyArea = windowArea;
-            for (const auto occupyArea : tile.windows)
+            for (const int64_t *occupyArea : tile.windows)
                 minOccupyArea = std::min(minOccupyArea, *occupyArea);
 
             int64_t maxRemoveArea = minOccupyArea - minMetalAreaConstraint;
             int64_t removeArea = 0;
             std::vector<process::Filler *> fillers(tile.fillerSet.begin(), tile.fillerSet.end());
-            std::sort(fillers.begin(), fillers.end(), [](const process::Filler *a, const process::Filler *b)
+            std::sort(fillers.begin(), fillers.end(), [](const process::Filler *a, const process::Filler *b) -> bool
                       { return a->area() < b->area(); });
-            for (const auto &filler : fillers)
+            for (process::Filler *filler : fillers)
             {
                 if (filler->inTile)
                 {
@@ -649,12 +643,12 @@ void DensityManager::removeMoreFiller()
 int64_t DensityManager::getOccupyAreaBruteForce(const process::Tile &tile) const
 {
     std::vector<std::vector<bool>> detailGird(tileSize, std::vector<bool>(tileSize, false));
-    for (const auto &conductor : layer->conductors)
+    for (const process::Conductor::ptr &conductor : layer->conductors)
     {
         if (!geometry::isIntersect(tile, *conductor))
             continue;
 
-        auto region = geometry::getIntersectRegion(tile, *conductor);
+        geometry::Rectangle region = geometry::getIntersectRegion(tile, *conductor);
         region.shift(-tile.x1, -tile.y1);
         for (int64_t y = region.y1; y < region.y2; ++y)
             for (int64_t x = region.x1; x < region.x2; ++x)
@@ -662,17 +656,17 @@ int64_t DensityManager::getOccupyAreaBruteForce(const process::Tile &tile) const
     }
 
     std::unordered_set<process::Filler *> fillerSet;
-    for (const auto &row : tileGrid)
-        for (const auto &tile : row)
-            for (const auto filler : tile.fillerSet)
+    for (const std::vector<process::Tile> &row : tileGrid)
+        for (const process::Tile &tile : row)
+            for (process::Filler *filler : tile.fillerSet)
                 fillerSet.emplace(filler);
 
-    for (const auto filler : fillerSet)
+    for (const process::Filler *filler : fillerSet)
     {
         if (!geometry::isIntersect(tile, *filler))
             continue;
 
-        auto region = geometry::getIntersectRegion(tile, *filler);
+        geometry::Rectangle region = geometry::getIntersectRegion(tile, *filler);
         region.shift(-tile.x1, -tile.y1);
         for (int64_t y = region.y1; y < region.y2; ++y)
             for (int64_t x = region.x1; x < region.x2; ++x)
@@ -680,8 +674,8 @@ int64_t DensityManager::getOccupyAreaBruteForce(const process::Tile &tile) const
     }
 
     int64_t area = 0;
-    for (const auto &row : detailGird)
-        for (auto col : row)
+    for (const std::vector<bool> &row : detailGird)
+        for (bool col : row)
             if (col)
                 ++area;
     return area;
@@ -719,12 +713,12 @@ void DensityManager::drawRegion(std::vector<std::vector<char>> &detailGrid, cons
 void DensityManager::drawTile(std::ostream &output, size_t rowIdx, size_t colIdx, bool drawFiller, double scaling) const
 {
     assert(rowIdx < numTileRow && colIdx < numTileCol);
-    const auto &tile = tileGrid[rowIdx][colIdx];
+    const process::Tile &tile = tileGrid[rowIdx][colIdx];
     std::vector<std::vector<char>> detailGrid(tile.height() * scaling,
                                               std::vector<char>(tile.width() * scaling, ' '));
     drawBorder(detailGrid, tile, tile, scaling);
 
-    for (const auto conductor : tile.conductors)
+    for (const process::Conductor *conductor : tile.conductors)
         if (!conductor->isCritical)
             drawBorder(detailGrid, tile, geometry::getIntersectRegion(tile, *conductor), scaling, '.', '.');
         else
@@ -732,12 +726,12 @@ void DensityManager::drawTile(std::ostream &output, size_t rowIdx, size_t colIdx
 
     if (drawFiller)
     {
-        for (const auto filler : tile.fillerSet)
+        for (const process::Filler *filler : tile.fillerSet)
             drawBorder(detailGrid, tile, geometry::getIntersectRegion(tile, *filler), scaling, '#', '#');
     }
     else
     {
-        for (const auto candidateRegion : tile.candidateRegions)
+        for (const geometry::Rectangle *candidateRegion : tile.candidateRegions)
             drawBorder(detailGrid, tile, geometry::getIntersectRegion(tile, *candidateRegion), scaling, '#', '#');
     }
 
@@ -751,7 +745,7 @@ void DensityManager::drawTile(std::ostream &output, size_t rowIdx, size_t colIdx
         output << "#candidate regions: " << tile.candidateRegions.size() << "\n";
     for (auto rowIt = detailGrid.rbegin(); rowIt != detailGrid.rend(); ++rowIt)
     {
-        for (auto col : *rowIt)
+        for (char col : *rowIt)
             output << col;
         output << "\n";
     }
@@ -773,8 +767,8 @@ void DensityManager::drawWindow(std::ostream &output, size_t rowIdx, size_t colI
     {
         for (size_t c = 0; c < numTileForWindow; ++c)
         {
-            const auto &tile = tileGrid[rowIdx + r][colIdx + c];
-            for (const auto conductor : tile.conductors)
+            const process::Tile &tile = tileGrid[rowIdx + r][colIdx + c];
+            for (process::Conductor *conductor : tile.conductors)
             {
                 conductors.emplace(conductor);
                 if (!conductor->isCritical)
@@ -784,7 +778,7 @@ void DensityManager::drawWindow(std::ostream &output, size_t rowIdx, size_t colI
             }
             if (drawFiller)
             {
-                for (const auto filler : tile.fillerSet)
+                for (process::Filler *filler : tile.fillerSet)
                 {
                     fillers.emplace(filler);
                     drawBorder(detailGrid, window, geometry::getIntersectRegion(window, *filler), scaling, '#', '#');
@@ -792,7 +786,7 @@ void DensityManager::drawWindow(std::ostream &output, size_t rowIdx, size_t colI
             }
             else
             {
-                for (const auto candidateRegion : tile.candidateRegions)
+                for (geometry::Rectangle *candidateRegion : tile.candidateRegions)
                 {
                     candidateRegions.emplace(candidateRegion);
                     drawBorder(detailGrid, window, geometry::getIntersectRegion(window, *candidateRegion), scaling, '#', '#');
@@ -812,7 +806,7 @@ void DensityManager::drawWindow(std::ostream &output, size_t rowIdx, size_t colI
         output << "#candidate regions:   " << candidateRegions.size() << "\n";
     for (auto rowIt = detailGrid.rbegin(); rowIt != detailGrid.rend(); ++rowIt)
     {
-        for (auto col : *rowIt)
+        for (char col : *rowIt)
             output << col;
         output << "\n";
     }
@@ -838,8 +832,8 @@ DensityManager::DensityManager(process::Database *db_, size_t numTileForWindow_)
 
 ResultWriter::ptr DensityManager::solve()
 {
-    auto resultWriter = new ResultWriter();
-    for (const auto &curLayer : db->layers)
+    ResultWriter *resultWriter = new ResultWriter();
+    for (const process::Layer::ptr &curLayer : db->layers)
     {
         initProcessLayer(curLayer.get());
         std::cout << "----- LAYER " << layer->id << " -----\n"
@@ -847,26 +841,26 @@ ResultWriter::ptr DensityManager::solve()
         printf("Min/Max density constraint:           %.4lf %.4lf\n", layer->minMetalDensity, layer->maxMetalDensity);
 
         initGrid();
-        auto minMaxDensity = getMinMaxWindowMetalDensity();
+        std::pair<double, double> minMaxDensity = getMinMaxWindowMetalDensity();
         printf("Min/Max density (original):           %.4lf %.4lf\n", minMaxDensity.first, minMaxDensity.second);
 
         for (size_t rowIdx = 0; rowIdx < numTileRow; ++rowIdx)
         {
             for (size_t colIdx = 0; colIdx < numTileCol; ++colIdx)
             {
-                auto freeRegions = getAllFreeRegion(rowIdx, colIdx);
+                std::vector<geometry::Rectangle> freeRegions = getAllFreeRegion(rowIdx, colIdx);
                 freeRegions = refineFreeRegion(freeRegions);
-                for (const auto &freeRegion : freeRegions)
+                for (const geometry::Rectangle &freeRegion : freeRegions)
                 {
-                    auto newFreeRegion = new geometry::Rectangle(freeRegion);
+                    geometry::Rectangle *newFreeRegion = new geometry::Rectangle(freeRegion);
                     allCandidateRegions.emplace_back(newFreeRegion);
                     recordFreeRegion(newFreeRegion);
                 }
 
-                auto fillers = generateAllFiller(freeRegions);
-                for (const auto &filler : fillers)
+                std::vector<geometry::Rectangle> fillers = generateAllFiller(freeRegions);
+                for (const geometry::Rectangle &filler : fillers)
                 {
-                    auto newFiller = new process::Filler(filler, true);
+                    process::Filler *newFiller = new process::Filler(filler, true);
                     allFillers.emplace_back(newFiller);
                     insertFiller(newFiller);
                 }
@@ -877,19 +871,19 @@ ResultWriter::ptr DensityManager::solve()
         {
             initGrid();
 
-            auto freeRegions = getAllFreeRegion(numTileRow, numTileCol);
+            std::vector<geometry::Rectangle> freeRegions = getAllFreeRegion(numTileRow, numTileCol);
             freeRegions = refineFreeRegion(freeRegions);
-            for (const auto &freeRegion : freeRegions)
+            for (const geometry::Rectangle &freeRegion : freeRegions)
             {
-                auto newFreeRegion = new geometry::Rectangle(freeRegion);
+                geometry::Rectangle *newFreeRegion = new geometry::Rectangle(freeRegion);
                 allCandidateRegions.emplace_back(newFreeRegion);
                 recordFreeRegion(newFreeRegion);
             }
 
-            auto fillers = generateAllFiller(freeRegions);
-            for (const auto &filler : fillers)
+            std::vector<geometry::Rectangle> fillers = generateAllFiller(freeRegions);
+            for (const geometry::Rectangle &filler : fillers)
             {
-                auto newFiller = new process::Filler(filler, coverByOneTile(filler));
+                process::Filler *newFiller = new process::Filler(filler, coverByOneTile(filler));
                 allFillers.emplace_back(newFiller);
                 insertFiller(newFiller);
             }
@@ -912,11 +906,11 @@ ResultWriter::ptr DensityManager::solve()
         std::cout << "\n";
 
         std::unordered_set<geometry::Rectangle *> fillerSet;
-        for (const auto &row : tileGrid)
-            for (const auto &tile : row)
-                for (const auto filler : tile.fillerSet)
+        for (const std::vector<process::Tile> &row : tileGrid)
+            for (const process::Tile &tile : row)
+                for (process::Filler *filler : tile.fillerSet)
                     fillerSet.emplace(filler);
-        for (const auto filler : fillerSet)
+        for (const geometry::Rectangle *filler : fillerSet)
             resultWriter->addFiller(*filler, layer->id);
     }
     return std::unique_ptr<ResultWriter>(resultWriter);
