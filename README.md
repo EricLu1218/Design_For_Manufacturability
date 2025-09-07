@@ -1,5 +1,5 @@
 # Design For Manufacturability
-This is "2023 NTHU CS512200 Design For Manufacturability" course project.
+This is "NTHU CS5122 Design For Manufacturability" course project.
 
 <h3>⭐⭐⭐ IF THIS REPO HELPS YOU, PLEASE GIVE ME A STAR! ⭐⭐⭐</h3>
 
